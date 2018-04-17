@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
-
+#include <boost/crc.hpp>
 #include "methods.h"
 
 
@@ -14,6 +14,7 @@
 #include <array>
 
 using namespace std;
+
 
 string exec(const char* cmd) {
     array<char, 128> buffer;
@@ -74,19 +75,6 @@ bool shouldFail() {
 	else
 		state = t + M;
 	return (long)(((double) state/M)* nonce) == 1;
-}
-
-uint32_t crc32c(uint32_t crc, char *buf, size_t len)
-{
-    int k;
-
-    crc = ~crc;
-    while (len--) {
-        crc ^= *buf++;
-        for (k = 0; k < 8; k++)
-            crc = (crc >> 1) ^ (POLY & (0 - (crc & 1)));
-    }
-    return ~crc;
 }
 
 u_short cksum(u_short *buf, int count)

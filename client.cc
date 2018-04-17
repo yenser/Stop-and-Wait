@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <boost/crc.hpp>
+
 
 //methods.h
 #include "methods.h"
@@ -18,9 +20,13 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* se
     double timeout = 0.5;
     clock_t time = clock();
 
-    uint32_t cksum = crc32c(0, buff, sizeof(buff));
 
-    cout << "CheckSum: " << cksum << endl;
+    // checksum stuff
+    boost::crc_32_type result;
+    result.process_bytes(buff, buffSize);
+    cout << std::hex << std::uppercase << result.checksum();
+    // ^ checksum stuff
+
 
     cout << "sending packet " << *total << endl;
 

@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <boost/crc.hpp>
+
 
 //methods.h
 #include "methods.h"
@@ -62,8 +64,17 @@ int main(int argc, char *argv[])
 				copy(client_message + 1, client_message + end, buff);
 				myfile.write((char*) &buff, end-1);
 
-				uint32_t cksum = crc32c(0, buff, sizeof(buff));
-    			cout << "CheckSum: " << cksum << endl;
+
+
+				// checksum stuff
+				boost::crc_32_type  result;
+			    result.process_bytes(buff, sizeof (buff));
+    			cout << std::hex << std::uppercase << result.checksum() << endl;
+    			// ^ checksum stuff
+			
+
+
+
 			}
 
 			memset(client_message, '\0', sizeof client_message); // clear client_message
