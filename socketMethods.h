@@ -17,7 +17,7 @@ int serverStart();
 
 int clientStart();
 
-bool sendACK(int, char*, int);
+bool sendACK(int, char*);
 
 
 

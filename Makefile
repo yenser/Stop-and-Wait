@@ -2,7 +2,7 @@ CFLAGS = -Wall -std=c++11
 
 main: clean
 	g++ server.cc methods.cc socketMethods.cc -o server $(CFLAGS)
-	g++ client.cc methods.cc socketMethods.cc -o client $(CFLAGS)
+	g++ client.cc methods.cc socketMethods.cc SaW.cc SW.cc -o client $(CFLAGS)
 
 
 server.o: server.cc

@@ -65,7 +65,7 @@ int SocketReceive(int hSocket, char *Rsp, short RvcSize)
     int shortRetval = -1;
     struct timeval tv;
     tv.tv_sec = 0; /* 20 Secs Timeout */
-    tv.tv_usec = 3000;
+    tv.tv_usec = 1000;
     if (setsockopt(hSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) < 0)
     {
         printf("Time Out\n");
@@ -133,8 +133,8 @@ int clientStart() {
     return hSocket;
 }
 
-bool sendACK(int sock, char* response, int ackNum) {
-    cout << "Sending ack " << ackNum << "... ";
+bool sendACK(int sock, char* response) {
+    cout << "Sending ack " << response[0] << "... ";
     // printf("Sending ack... %d\n", ackNum);
 
     if(shouldFail() == true) {

@@ -14,6 +14,18 @@
 
 using namespace std;
 
+/// Variable declaration ///
+const int packetSize = PACKETSIZE;
+const int buffSize = packetSize-2;
+char client_message[packetSize+1] = {0};
+// memset(client_message, '\0', sizeof client_message);
+char buff[buffSize]={0};
+char response[1] = {'0'};
+int ackNum = 0;
+int total = 0;
+int sock = serverStart();
+///////////////////////////
+
 int getEndIndex(char* buff, int size) {
 	int i = size;
 	while(buff[i] == '\0'){
@@ -22,26 +34,11 @@ int getEndIndex(char* buff, int size) {
 	return i;
 }
 
-int main(int argc, char *argv[])
-{
-
-	/// Variable declaration ///
-	const int packetSize = PACKETSIZE;
-	const int buffSize = packetSize-2;
-	char client_message[packetSize+1] = {0};
-	memset(client_message, '\0', sizeof client_message);
-	char buff[buffSize]={0};
-	char response[1] = {'0'};
-	int ackNum = 0;
-	int total = 0;
-	int sock = serverStart();
-	///////////////////////////
-
+void stopAndWait() {
 
 	//setup file
 	ofstream myfile;
 	myfile.open("mylogServer.txt", ios::binary);
-
 	
 
 	clock_t t1, t2;
@@ -64,17 +61,11 @@ int main(int argc, char *argv[])
 				copy(client_message + 1, client_message + end, buff);
 				myfile.write((char*) &buff, end-1);
 
-
-
 				// checksum stuff
-				boost::crc_32_type  result;
-			    result.process_bytes(buff, sizeof (buff));
-    			cout << std::hex << std::uppercase << result.checksum() << endl;
+				// boost::crc_32_type  result;
+				// result.process_bytes(buff, sizeof (buff));
+    			// cout << std::hex << std::uppercase << result.checksum() << endl;
     			// ^ checksum stuff
-			
-
-
-
 			}
 
 			memset(client_message, '\0', sizeof client_message); // clear client_message
@@ -84,22 +75,13 @@ int main(int argc, char *argv[])
 			ackNum = (ackNum+1) % 2;
 		}
 
-		shouldFail = sendACK(sock, response, ackNum);		
+		shouldFail = sendACK(sock, response);		
 
 		if (shouldFail == false) {
 			total++;
 		} else {
 			failed++;
 		}
-
-
-
-		
-		
-
-
-
-		//send ack
 	}
 
 	
@@ -118,7 +100,17 @@ int main(int argc, char *argv[])
     cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;	
     cout << "total elapsed time: " << seconds << endl;	
 	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;	
-	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;	
+	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;
+}
+
+void SlidingWindow() {
+
+}
+
+int main(int argc, char *argv[])
+{
+	stopAndWait();
+		
 
 	return 0;
 }
