@@ -1,5 +1,5 @@
-#ifndef _SAW
-#define _SAW
+#ifndef _SW
+#define _SW
 
 using namespace std;
 

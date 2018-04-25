@@ -13,6 +13,7 @@
 #include "methods.h"
 #include "socketMethods.h"
 #include "SaW.h"
+#include "SW.h"
 
 using namespace std;
 
@@ -21,6 +22,6 @@ using namespace std;
 //main driver program
 int main(int argc, char *argv[])
 {
-    return stopAndWaitProtocol(argc, argv);
-    // return SlidingWindowProtocol(argc, argv);
+    // return stopAndWaitProtocol(argc, argv);
+    return SlidingWindowProtocol(argc, argv);
 }

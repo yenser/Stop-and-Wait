@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <vector>
 #include <boost/crc.hpp>
 
 
@@ -103,14 +104,123 @@ void stopAndWait() {
 	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;
 }
 
-void SlidingWindow() {
 
+// char buffArray[SEQUENCENUM+1][PACKETSIZE+1] = {};
+vector<string> buffArr;
+char strCopy[packetSize] = {0};
+
+
+
+void SlidingWindow() {
+		//setup file
+	ofstream myfile;
+	myfile.open("mylogServer.txt", ios::binary);
+	
+	if (!myfile.is_open())
+    {
+    	cout << "file isn't open" << endl;
+    }
+
+	clock_t t1, t2;
+	int failed = 0;
+	int writes = 0;
+	t1 = clock();
+
+	int i = 0;
+
+	while(recv(sock, client_message, packetSize, 0) > 0) {
+
+		cout << "recieved " << total << " [" << client_message[0] << "]" << endl;
+
+
+		if ((i+48) == client_message[0]) {
+		// if(i == SEQUENCENUM) { // first reply if needs more info, then write everything
+			total++;
+
+			memset(buff, 0, sizeof buff);
+
+			int end = getEndIndex(client_message, packetSize);
+
+			if (end != 0) {
+				writes++;			
+				copy(client_message+1, client_message + end, buff);
+				myfile.write((char*) &buff, end-1);
+			}
+			else {
+				failed++;
+			}
+
+			response[0] = '0'+i;
+
+			i++;
+			if(i > SEQUENCENUM) {
+				i = 0;
+			}
+
+		}
+
+		cout << "Sending ack " << response[0] << "... ";
+
+        send(sock, response, sizeof(response), 0);
+        cout << endl;
+
+		memset(client_message, 0, packetSize+1);
+
+		
+	}
+
+	//Last set of write if buffArray got cut short
+
+
+	if ((i+48) == client_message[0]) {
+	// if(i == SEQUENCENUM) { // first reply if needs more info, then write everything
+		total++;
+
+		memset(buff, 0, sizeof buff);
+
+		int end = getEndIndex(client_message, packetSize);
+
+		if (end != 0) {
+		cout << "recieved " << total << " [" << client_message[0] << "]" << endl;
+
+			writes++;			
+			copy(client_message+1, client_message + end, buff);
+			myfile.write((char*) &buff, end-1);
+		}
+		else {
+			failed++;
+		}
+
+		i++;
+
+		if(i > SEQUENCENUM) {
+			i = 0;
+		}
+	}
+
+
+	myfile.close();
+	close(sock);
+
+	t2 = clock();
+	float diff ((float)t2-(float)t1);
+	float seconds = diff / CLOCKS_PER_SEC;
+
+
+    cout << "\n\n\n" << endl;
+	cout << "total ACKs dropped: " << failed << endl;
+	cout << "writes to file: " << writes << endl;
+    cout << "Number of Packets: " << total << endl;	
+    cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;	
+    cout << "total elapsed time: " << seconds << endl;	
+	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;	
+	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;
 }
 
 int main(int argc, char *argv[])
 {
-	stopAndWait();
-		
+	// stopAndWait();
+	SlidingWindow();
 
 	return 0;
 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <fstream>
+#include <vector>
 #include <boost/crc.hpp>
 
 
@@ -14,83 +15,68 @@
 #include "methods.h"
 #include "socketMethods.h"
 
+#define WINDOWSIZE 3
+
 using namespace std;
 
 
-char buffArray[SEQUENCENUM+1][PACKETSIZE-2] = {};
+vector<string> buffArr;
+char strCopy[PACKETSIZE] = {0};
 ///////////////////////////
 
 
 
-int get2DArraySize() {
-    return sizeof buffArray / sizeof buffArray[0];
+
+
+
+
+
+
+void SlidingWindowSend(int hSocket, char* packet, int packetSize, int* total, int* dropped, int* seqNum) {
+
+    for(int i = 0; i < buffArr.size(); i++) { //sending
+
+        memset(packet, 0, packetSize);
+        cout << "sending packet " << *total << " SeqNum: " << i << endl;
+        strcpy(packet, buffArr.at(i).c_str());
+
+        while(SocketSend(hSocket, packet, packetSize) == -1) {
+            cout << "resending due to packet drop" << endl;
+            (*dropped)++;
+        }
+
+        (*total)++; 
+    }
+
+    cout << endl;
 }
 
+void SlidingWindowRecv(int hSocket, char* server_reply, int* total, int* dropped, int* seqNum, int* inc) {
 
-
-
-
-
-
-
-void SlidingWindow(int hSocket, char* packet, int packetSize, char* buff, char* server_reply, int buffSize, int* readSize, int* total, int* dropped, int* seqNum) {
     double timeout = 0.5;
     clock_t time = clock();
 
 
-    // checksum stuff
-    // boost::crc_32_type result;
-    // result.process_bytes(buff, buffSize);
-    // cout << "CheckSum Value: " << std::hex << std::uppercase << result.checksum() << endl;
-    // ^ checksum stuff
+    while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) == -1) {
+        if (diffclock(clock(), time) >= timeout) {
+            
+            // SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
 
-    for(int i = 0; i <= SEQUENCENUM; i++) {
-
-        cout << "sending packet " << total << " SeqNum: " << i << endl;
-
-        generatePacket(packet, buffArray[i], *readSize, i);
-
-        while(SocketSend(hSocket, packet, packetSize) == -1) {
-            cout << "resending due to packet drop" << endl;
-            (dropped)++;
+            (*dropped)++;
+            cout << "resending previous data " << *total << endl;
+            timeout += 0.5;
+        } else {
+            cout << "waiting for timeout... " << diffclock(clock(), time) << " | " << timeout << endl;
         }
-
-        (total)++;
-
+    }
+    cout << "Received Ack " << server_reply[0] << endl << endl;
+    if (server_reply[0] == buffArr.at(0)[0]) {
+        buffArr.erase(buffArr.begin());
+        (*inc)--;
     }
 
-    cout << endl;
-
-
-
-    // // if(shouldFail() == true) {
-    // //     cout << "Fake Error: Socket did not send" << endl;
-    // // } else {
-    //     while(SocketSend(hSocket, packet, packetSize) == -1) {
-    //         cout << "resending due to packet drop" << endl;
-    //         (dropped)++;
-    //     }
-    // // }
-    
-    // //wait for reply
-    // while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) == -1) {
-    //     if (diffclock(clock(), time) >= timeout) {
-    //         SocketSend(hSocket, packet, packetSize);
-    //         (dropped)++;
-    //         cout << "resending previous data " << total << endl;
-    //         timeout += 0.5;
-    //     } else {
-    //         cout << "waiting for timeout... " << diffclock(clock(), time)<< " | " << timeout << endl;
-    //     }
-    // }
-    // cout << "Received Ack " << server_reply[0] << endl << endl;
-
-    
-    //variable resets
-    // memset(buff, 0, sizeof(char)*buffSize);   
-    // memset(packet, 0, sizeof(char)*packetSize);
-    // seqNum = (seqNum+1) % 2;
 }
+
 
 int SlidingWindowProtocol(int argc, char *argv[]) {
     if (argc != 2)
@@ -98,7 +84,6 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
         printf("Missing File Argument\n");
         return 0;
     }
-
 
     /// Variable declaration ///    
     streampos begin, end;
@@ -112,46 +97,65 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
     int dropped = 0;
     int seqNum = 0;   
     int total = 0;
+    int inc = 0;
+    int WindowToSeqNum = 0;
+    clock_t t1, t2;
+    t1 = clock();
 
 
     ifstream myfile(argv[1], ios::binary);
-
-
     if (!myfile.is_open())
     {
         return -1;
     }
-
     int hSocket = clientStart();
 
-    clock_t t1, t2;
-    t1 = clock();
 
-    int inc = 0;
+
 
     while (myfile.read(buff, buffSize))
     {
-        if(inc == SEQUENCENUM) {
+        
+
+        readSize = getReadSize(buff, readSize);
+        generatePacket(packet, buff, readSize, seqNum);
+        buffArr.push_back(packet);
+
+        if(inc == WINDOWSIZE) {
             // cout << "\n---New Seqence---\n" << endl;
-            SlidingWindow(hSocket, packet, packetSize, buff, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
+            
+
+            SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
+
+
+
+            
+
             inc = 0;
         } else {
-            memset(buffArray[inc], 0, sizeof(buffArray[inc]));
-            strcpy(buffArray[inc], buff);
-            // cout << buffArray[inc];
-
-            inc++;
+            inc++;  
         }
+
+        seqNum++;
+            if(seqNum > SEQUENCENUM)
+                seqNum = 0;
+        readSize = buffSize;
+        memset(buff, 0, buffSize);
+        memset(packet, 0, packetSize);
     }
+
+
+    // Stuff for final read
     readSize = getReadSize(buff, readSize);
     if (readSize != 0) {
-        if(inc == SEQUENCENUM) {
-            SlidingWindow(hSocket, packet, packetSize, buff, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
-            inc = 0;
-        } else {
-            inc++;
-        }
+        generatePacket(packet, buff, readSize, inc);
+        buffArr.push_back(packet);
+        inc++;
     }
+
+    SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
+
+
 
 
     myfile.close();

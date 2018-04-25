@@ -1,4 +1,4 @@
-CFLAGS = -Wall -std=c++11 
+CFLAGS = -Wall -std=c++11
 
 main: clean
 	g++ server.cc methods.cc socketMethods.cc -o server $(CFLAGS)
