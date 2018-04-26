@@ -130,7 +130,7 @@ void SlidingWindow() {
 
 	while(recv(sock, client_message, packetSize, 0) > 0) {
 
-		cout << "recieved " << total << " [" << client_message[0] << "]" << endl;
+		cout << "recieved " << total << " [" << client_message[0] << "]\texpecting " << i << endl;
 
 
 		if ((i+48) == client_message[0]) {
@@ -157,23 +157,23 @@ void SlidingWindow() {
 				i = 0;
 			}
 
+			cout << "Sending ack " << response[0] << "... " << endl;
+
+	        send(sock, response, sizeof(response), 0);
+
+			memset(client_message, 0, packetSize+1);
+		} else {
+			response[0] = client_message[0];
+			cout << "Sending ack " << response[0] << "... " << endl;
+			send(sock, response, sizeof(response), 0);
 		}
-
-		cout << "Sending ack " << response[0] << "... ";
-
-        send(sock, response, sizeof(response), 0);
-        cout << endl;
-
-		memset(client_message, 0, packetSize+1);
-
-		
 	}
 
 	//Last set of write if buffArray got cut short
 
 
 	if ((i+48) == client_message[0]) {
-	// if(i == SEQUENCENUM) { // first reply if needs more info, then write everything
+		// if(i == SEQUENCENUM) { // first reply if needs more info, then write everything
 		total++;
 
 		memset(buff, 0, sizeof buff);
@@ -181,8 +181,6 @@ void SlidingWindow() {
 		int end = getEndIndex(client_message, packetSize);
 
 		if (end != 0) {
-		cout << "recieved " << total << " [" << client_message[0] << "]" << endl;
-
 			writes++;			
 			copy(client_message+1, client_message + end, buff);
 			myfile.write((char*) &buff, end-1);
@@ -191,11 +189,22 @@ void SlidingWindow() {
 			failed++;
 		}
 
-		i++;
+		response[0] = '0'+i;
 
+		i++;
 		if(i > SEQUENCENUM) {
 			i = 0;
 		}
+
+		cout << "Sending ack " << response[0] << "... " << endl;
+
+        send(sock, response, sizeof(response), 0);
+
+		memset(client_message, 0, packetSize+1);
+	} else {
+		response[0] = client_message[0];
+		cout << "Sending ack " << response[0] << "... " << endl;
+		send(sock, response, sizeof(response), 0);
 	}
 
 

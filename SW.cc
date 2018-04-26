@@ -28,53 +28,92 @@ char strCopy[PACKETSIZE] = {0};
 
 
 
+void printWindow(int seqNum, int i) {
+    int windowStart = seqNum-WINDOWSIZE;
+    int unit = (seqNum-(WINDOWSIZE-i));
+    int end = seqNum-1;
+
+    if (windowStart < 0) {
+        windowStart = windowStart+SEQUENCENUM+1;
+        unit = unit+SEQUENCENUM+1;
+        end = end+SEQUENCENUM+1;
+    }
+
+    for (int k = 0; k <= 9; k++) {
+
+        if(k == windowStart)
+            cout << "[";
+
+        if(k == unit)
+            cout << "(";
+
+        cout << k;
+
+        if(k == unit)
+            cout << ")";
+
+        if(k == end)
+            cout << "]";
+
+        cout << " ";
+    }
+    cout << endl;
+}
 
 
 
-
-void SlidingWindowSend(int hSocket, char* packet, int packetSize, int* total, int* dropped, int* seqNum) {
+void SlidingWindowSend(int hSocket, char* packet, int packetSize, int* total, int* dropped, int* seqNum, int inc) {
 
     for(int i = 0; i < buffArr.size(); i++) { //sending
 
+        cout << "sending packet " << *total << "\t";
+        // printWindow(*seqNum, i);
+        cout << buffArr.at(i)[0] << endl;
+
         memset(packet, 0, packetSize);
-        cout << "sending packet " << *total << " SeqNum: " << i << endl;
         strcpy(packet, buffArr.at(i).c_str());
 
         while(SocketSend(hSocket, packet, packetSize) == -1) {
             cout << "resending due to packet drop" << endl;
             (*dropped)++;
         }
-
         (*total)++; 
     }
 
-    cout << endl;
+    // cout << endl << endl;
 }
 
-void SlidingWindowRecv(int hSocket, char* server_reply, int* total, int* dropped, int* seqNum, int* inc) {
+int SlidingWindowRecv(int hSocket, char* server_reply, int* total, int* dropped, int* seqNum, int* inc) {
 
-    double timeout = 0.5;
+    double timeout = 1.0;
     clock_t time = clock();
+    while(buffArr.size() != 0) {
+        time =  clock();
+        while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) == -1) {
+            if (diffclock(clock(), time) >= timeout) {
+                (*dropped)++;
+                cout << " timed out" << endl;
+                *total -= buffArr.size();
+                return -1;
+            } else {
+                // cout << "waiting for timeout... " << diffclock(clock(), time) << " | " << timeout << endl;
+            }
+        }
 
+       cout << "Ack Received: " << server_reply[0] << endl;
 
-    while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) == -1) {
-        if (diffclock(clock(), time) >= timeout) {
-            
-            // SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
-
-            (*dropped)++;
-            cout << "resending previous data " << *total << endl;
-            timeout += 0.5;
+        if (server_reply[0] == buffArr.at(0)[0]) {
+            buffArr.erase(buffArr.begin()+0);
+            (*inc)--;
         } else {
-            cout << "waiting for timeout... " << diffclock(clock(), time) << " | " << timeout << endl;
+            *total -= buffArr.size();
+            (*dropped)++;
+            return -1;
         }
     }
-    cout << "Received Ack " << server_reply[0] << endl << endl;
-    if (server_reply[0] == buffArr.at(0)[0]) {
-        buffArr.erase(buffArr.begin());
-        (*inc)--;
-    }
-
+    
+    
+    return 0;
 }
 
 
@@ -84,7 +123,6 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
         printf("Missing File Argument\n");
         return 0;
     }
-
     /// Variable declaration ///    
     streampos begin, end;
     string line;
@@ -101,8 +139,6 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
     int WindowToSeqNum = 0;
     clock_t t1, t2;
     t1 = clock();
-
-
     ifstream myfile(argv[1], ios::binary);
     if (!myfile.is_open())
     {
@@ -116,25 +152,25 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
     while (myfile.read(buff, buffSize))
     {
         
-
         readSize = getReadSize(buff, readSize);
         generatePacket(packet, buff, readSize, seqNum);
         buffArr.push_back(packet);
+        inc++;
 
-        if(inc == WINDOWSIZE) {
+        while(inc == WINDOWSIZE) {
             // cout << "\n---New Seqence---\n" << endl;
-            
+            // int resend = -1;
+            // while(resend == -1) {
+                SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum, inc);
 
-            SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
+                SlidingWindowRecv(hSocket, server_reply, &total, &dropped, &seqNum, &inc);
 
-
-
-            
-
-            inc = 0;
-        } else {
-            inc++;  
+                cout << endl << endl;
+            // }
+            // inc = 0;
         }
+
+
 
         seqNum++;
             if(seqNum > SEQUENCENUM)
@@ -144,16 +180,19 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
         memset(packet, 0, packetSize);
     }
 
-
     // Stuff for final read
     readSize = getReadSize(buff, readSize);
     if (readSize != 0) {
-        generatePacket(packet, buff, readSize, inc);
+        generatePacket(packet, buff, readSize, seqNum);
         buffArr.push_back(packet);
         inc++;
-    }
 
-    SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum);
+        while(inc != 0) {
+            SlidingWindowSend(hSocket, packet, packetSize, &total, &dropped, &seqNum, inc);
+
+            SlidingWindowRecv(hSocket, server_reply, &total, &dropped, &seqNum, &inc);
+        }        
+    }
 
 
 
@@ -166,7 +205,7 @@ int SlidingWindowProtocol(int argc, char *argv[]) {
     
 
     cout << "\n\n\n" << endl;
-    cout << "total sends dropped: " << dropped << endl;
+    cout << "total ACKs dropped: " << dropped << endl;
     cout << "Number of Packets: " << total << endl;
     cout << "file size: " << filesize(argv[1]) << " bytes" << endl;
     cout << "total elapsed time: " << seconds << endl;
