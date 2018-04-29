@@ -21,6 +21,8 @@ const int buffSize = packetSize-2;
 char client_message[packetSize+1] = {0};
 // memset(client_message, '\0', sizeof client_message);
 char buff[buffSize]={0};
+char chksum[9] = {0};
+char chksumCompare[9] = {0};
 char response[1] = {'0'};
 int ackNum = 0;
 int total = 0;
@@ -40,7 +42,7 @@ void stopAndWait() {
 	//setup file
 	ofstream myfile;
 	myfile.open("mylogServer.txt", ios::binary);
-	
+
 
 	clock_t t1, t2;
 	int failed = 0;
@@ -51,32 +53,37 @@ void stopAndWait() {
 		cout << endl << "Received " << total << "(" << client_message[0] << ")" << endl;
 
 		bool shouldFail = false;
-		
+
 		if ((ackNum+48) == client_message[0]) {
-			
+
 			int end = getEndIndex(client_message, packetSize);
 			memset(buff, 0, sizeof buff);
 			if (end != 0) {
 				// cout << "writing " << total-1 << endl;
-				writes++;			
-				copy(client_message + 1, client_message + end, buff);
-				myfile.write((char*) &buff, end-1);
+				writes++;
+				copy(client_message + 1, client_message + end-8, buff);
+				copy(client_message + end-8, client_message + end, chksum);
 
-				// checksum stuff
-				// boost::crc_32_type  result;
-				// result.process_bytes(buff, sizeof (buff));
-    			// cout << std::hex << std::uppercase << result.checksum() << endl;
-    			// ^ checksum stuff
+		    checksum(buff, chksumCompare);
+		    if(strcmp(chksum, chksumCompare) == 0) {
+					myfile.write((char*) &buff, end-9);
+			  }
+				else {
+					cout << "Checksum did not match" << endl;
+				}
+
 			}
 
 			memset(client_message, '\0', sizeof client_message); // clear client_message
-			
+			memset(chksum, '\0', sizeof chksum);
+			memset(chksumCompare, '\0', sizeof chksumCompare);
+
 
 			response[0] = '0'+ackNum;
 			ackNum = (ackNum+1) % 2;
 		}
 
-		shouldFail = sendACK(sock, response);		
+		shouldFail = sendACK(sock, response);
 
 		if (shouldFail == false) {
 			total++;
@@ -85,7 +92,7 @@ void stopAndWait() {
 		}
 	}
 
-	
+
 	myfile.close();
 	close(sock);
 
@@ -97,10 +104,10 @@ void stopAndWait() {
     cout << "\n\n\n" << endl;
 	cout << "total ACKs dropped: " << failed << endl;
 	// cout << "writes to file: " << writes << endl;
-    cout << "Number of Packets: " << total << endl;	
-    cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;	
-    cout << "total elapsed time: " << seconds << endl;	
-	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;	
+    cout << "Number of Packets: " << total << endl;
+    cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;
+    cout << "total elapsed time: " << seconds << endl;
+	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;
 	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;
 }
 
@@ -111,11 +118,11 @@ char strCopy[packetSize] = {0};
 
 
 
-void SlidingWindow() {
+void slidingWindow() {
 		//setup file
 	ofstream myfile;
 	myfile.open("mylogServer.txt", ios::binary);
-	
+
 	if (!myfile.is_open())
     {
     	cout << "file isn't open" << endl;
@@ -142,7 +149,7 @@ void SlidingWindow() {
 			int end = getEndIndex(client_message, packetSize);
 
 			if (end != 0) {
-				writes++;			
+				writes++;
 				copy(client_message+1, client_message + end, buff);
 				myfile.write((char*) &buff, end-1);
 			}
@@ -181,7 +188,7 @@ void SlidingWindow() {
 		int end = getEndIndex(client_message, packetSize);
 
 		if (end != 0) {
-			writes++;			
+			writes++;
 			copy(client_message+1, client_message + end, buff);
 			myfile.write((char*) &buff, end-1);
 		}
@@ -219,17 +226,17 @@ void SlidingWindow() {
     cout << "\n\n\n" << endl;
 	cout << "total ACKs dropped: " << failed << endl;
 	cout << "writes to file: " << writes << endl;
-    cout << "Number of Packets: " << total << endl;	
-    cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;	
-    cout << "total elapsed time: " << seconds << endl;	
-	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;	
+    cout << "Number of Packets: " << total << endl;
+    cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;
+    cout << "total elapsed time: " << seconds << endl;
+	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;
 	// cout << "MD5SUM: " << exec("md5sum mylogServer.txt") << endl;
 }
 
 int main(int argc, char *argv[])
 {
-	// stopAndWait();
-	SlidingWindow();
+	stopAndWait();
+	//slidingWindow();
 
 	return 0;
 }

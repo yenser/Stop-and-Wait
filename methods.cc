@@ -1,4 +1,5 @@
 #include <string>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -31,7 +32,17 @@ string exec(const char* cmd) {
 ifstream::pos_type filesize(const char* filename)
 {
     ifstream in(filename, ifstream::ate | ifstream::binary);
-    return in.tellg(); 
+    return in.tellg();
+}
+
+void checksum(char* buff, char* chksum)
+{
+  std::hash<std::string> string_hash;
+  int h = string_hash(buff);
+  stringstream ss;
+  ss << hex << h;
+  std::string hString = ss.str();
+  strcpy(chksum, hString.c_str());
 }
 
 int getReadSize(char* buff, int size) {
@@ -44,7 +55,7 @@ int getReadSize(char* buff, int size) {
 
 void catPacket(char* packet, char* buff, int readSize) {
         for(int i = 0; i < readSize; i++) {
-            packet[1+i] = buff[i]; 
+            packet[1+i] = buff[i];
         }
 }
 
@@ -59,7 +70,19 @@ void generatePacket( char* packet, char* buff, int readSize, int seqNum) {
 	//GENERATE PACKET TEMPLATE///
     packet[0] = '0' + seqNum;
     catPacket(packet, buff, readSize);
-    packet[readSize+1] = '0' + seqNum;    
+    packet[readSize+1] = '0' + seqNum;
+}
+
+void generateChecksumPacket( char* packet, char* buff, char* chksum, int readSize, int seqNum) {
+	//GENERATE PACKET TEMPLATE///
+    packet[0] = '0' + seqNum;
+    for(int i = 0; i < readSize; i++) {
+        packet[1+i] = buff[i];
+    }
+    for(int j = readSize; j < readSize+8; j++) {
+        packet[1+j] = chksum[j-readSize];
+    }
+    packet[readSize+9] = '0' + seqNum;
 }
 
 bool shouldFail() {

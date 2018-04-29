@@ -16,22 +16,21 @@
 
 using namespace std;
 
-void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* server_reply, int buffSize, int* readSize, int* total, int* dropped, int* seqNum) {
-    
+void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* chksum, char* server_reply, int buffSize, int* readSize, int* total, int* dropped, int* seqNum) {
+
     double timeout = 0.5;
     clock_t time = clock();
 
+    char buffCopy[buffSize];
+    strcpy(buffCopy, buff);
 
-    // checksum stuff
-    // boost::crc_32_type result;
-    // result.process_bytes(buff, buffSize);
-    // cout << "CheckSum Value: " << std::hex << std::uppercase << result.checksum() << endl;
-    // ^ checksum stuff
-
+    checksum(buffCopy, chksum);
 
     cout << "sending packet " << *total << endl;
 
-    generatePacket(packet, buff, *readSize, *seqNum); //assemble packet
+    generateChecksumPacket(packet, buffCopy, chksum, *readSize, *seqNum); //assemble packet
+
+    //cout << "This is the packet: " << packet << endl;
 
     if(shouldFail() == true) {
         cout << "Fake Error: Socket did not send" << endl;
@@ -41,7 +40,7 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* se
             (*dropped)++;
         }
     }
-    
+
     //wait for reply
     while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) == -1) {
         if (diffclock(clock(), time) >= timeout) {
@@ -55,13 +54,14 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* se
     }
     cout << "Received Ack " << server_reply[0] << endl << endl;
 
-    
+
     //variable resets
-    memset(buff, 0, sizeof(char)*buffSize);   
+    memset(buff, 0, sizeof(char)*buffSize);
     memset(packet, 0, sizeof(char)*packetSize);
+    memset(chksum, 0, sizeof(char)*8);
     *seqNum = (*seqNum+1) % 2;
-    (*total)++;        
-    
+    (*total)++;
+
 }
 
 int stopAndWaitProtocol(int argc, char *argv[]) {
@@ -71,21 +71,24 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
         return 0;
     }
 
-    /// Variable declaration ///    
+    /// Variable declaration ///
     streampos begin, end;
     string line;
     ifstream myfile(argv[1], ios::binary);
     const int packetSize = PACKETSIZE;
-    const int buffSize = packetSize - 2;
+    //cout << "Packetsize: " << packetSize << endl;
+    const int buffSize = packetSize - 10;
+    //cout << "Buffsize: " << buffSize << endl;
     char buff[buffSize] = {0};
+    char chksum[8] = {0};
     char server_reply[1] = {0};
     char packet[packetSize] = {0};
     int readSize = buffSize;
     int dropped = 0;
-    int seqNum = 0;   
+    int seqNum = 0;
     int total = 0;
     ///////////////////////////
-    
+
 
     if (!myfile.is_open())
     {
@@ -100,11 +103,13 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
     //Send data to the server
     while (myfile.read(buff, buffSize))
     {
-        stopAndWait(hSocket, packet, packetSize, buff, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
+        //cout << "Buffsize before stopAndWait: " << sizeof(buff) << endl;
+        //cout << "Buffsize from variable: " << buffSize << endl;
+        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
     }
     readSize = getReadSize(buff, readSize);
     if (readSize != 0) {
-        stopAndWait(hSocket, packet, packetSize, buff, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);        
+        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
     }
 
 
@@ -112,8 +117,8 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
 
     t2 = clock();
     float diff ((float)t2-(float)t1);
-    float seconds = diff / CLOCKS_PER_SEC;    
-    
+    float seconds = diff / CLOCKS_PER_SEC;
+
 
     cout << "\n\n\n" << endl;
     cout << "total sends dropped: " << dropped << endl;
@@ -131,5 +136,3 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
     shutdown(hSocket, 2);
     return 0;
 }
-
-

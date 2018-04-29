@@ -9,7 +9,7 @@ using namespace std;
 #define thing0 "127.0.0.1"
 // #define thing0 "10.35.195.46"
 
-typedef unsigned short int u_short; 
+typedef unsigned short int u_short;
 typedef unsigned long int u_long;
 
 typedef struct Packet {
@@ -23,6 +23,8 @@ string exec(const char*);
 
 ifstream::pos_type filesize(const char*);
 
+void checksum(char*, char*);
+
 int getReadSize(char*, int);
 
 void catPacket(char*, char*, int);
@@ -30,12 +32,14 @@ void catPacketStruct(char*, char*, int);
 
 void generatePacket( char*, char*, int, int);
 
+void generateChecksumPacket(char*, char*, char*, int, int);
+
 void serverCutAndWrite();
 
 u_short cksum(u_short*, int);
 
 bool shouldFail();
 
-double diffclock(clock_t ,clock_t); 
+double diffclock(clock_t ,clock_t);
 
-#endif 
+#endif
