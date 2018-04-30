@@ -19,7 +19,7 @@ using namespace std;
 
 /// Variable declaration ///
 const int packetSize = PACKETSIZE;
-const int buffSize = packetSize-2;
+const int buffSize = packetSize-10;
 char client_message[packetSize+1] = {0};
 // memset(client_message, '\0', sizeof client_message);
 char buff[buffSize]={0};
@@ -136,9 +136,9 @@ void SWRecv() {
 
 		mtx.lock();
 		cout << "recieved " << total << " [" << client_message[0] << "]\texpecting " << i << endl;
-		if ((i+48) == client_message[0]) {
+		// if ((i+48) == client_message[0]) {
 			buffArr.push_back(client_message);
-		}
+		// }
 		memset(client_message, 0, packetSize+1);
 		mtx.unlock();
 	}	
@@ -163,12 +163,22 @@ void SWSend(ofstream *myfile) {
 
 
 				if (end != 0) {
-					writes++;			
-					copy(strCpy + 1, strCpy + end, buff);
-					myfile->write((char*) &buff, end-1);
-				}
-				else {
-					failed++;
+					copy(strCpy + 1, strCpy + end-8, buff);
+					copy(strCpy + end-8, strCpy + end, chksum);
+
+
+					checksum(buff, chksumCompare);
+				    didChecksumFail = strcmp(chksum, chksumCompare) == 0;
+				    if(didChecksumFail) {
+							myfile->write((char*) &buff, end-9);
+							writes++;			
+
+					 }
+					else {
+						cout << "chksum: " << chksum << "\nchksumCompare: " << chksumCompare << endl;
+						cout << "Checksum did not match" << endl;
+						checksumFails++;
+					}
 				}
 
 
@@ -179,15 +189,28 @@ void SWSend(ofstream *myfile) {
 					i = 0;
 				}
 
+				memset(chksum, '\0', sizeof chksum);
+				memset(chksumCompare, '\0', sizeof chksumCompare);
 				memset(strCpy, 0, sizeof strCpy);
 		    	buffArr.erase(buffArr.begin());
 
-				cout << "Sending ack " << response[0] << "... " << endl << endl;
-		        send(sock, response, sizeof(response), 0);				
+		    	if(shouldFail() == true) {
+		    		cout << "Fake Error: ACK Lost" << endl;
+		    		failed++;
+		    	}else {
+					cout << "Sending ack " << response[0] << "... " << endl << endl;
+			        send(sock, response, sizeof(response), 0);				
+		    	}
 			} else {
-				// response[0] = client_message[0];
-				cout << "Sending ack " << response[0] << "... " << endl << endl;
-				send(sock, response, sizeof(response), 0);
+				if(shouldFail() == true) {
+		    		cout << "Fake Error: ACK Lost" << endl;
+		    		failed++;
+		    	}else {
+		    		response[0] = buffArr.at(0)[0];
+					cout << "Sending ack " << response[0] << "... " << endl << endl;
+			        send(sock, response, sizeof(response), 0);		
+			        buffArr.erase(buffArr.begin());		
+		    	}
 			}
 		}
 		mtx.unlock();
@@ -228,7 +251,7 @@ void SlidingWindow() {
     cout << "\n\n\n" << endl;
 	cout << "total ACKs dropped: " << failed << endl;
 	cout << "writes to file: " << writes << endl;
-    cout << "Number of Packets: " << total << endl;	
+    cout << "number of packets: " << total << endl;	
     cout << "file size: " << filesize("mylogServer.txt") << " bytes" << endl;	
     cout << "total elapsed time: " << seconds << endl;	
 	cout << "MD5SUM: " << exec("md5 mylogServer.txt") << endl;	

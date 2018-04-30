@@ -33,6 +33,7 @@ char buff[buffSize] = {0};
 char server_reply[1] = {0};
 char packet[packetSize] = {0};
 char genPacket[packetSize] = {0};
+char chksum[8] = {0};
 int readSize = buffSize;
 int dropped = 0;
 int seqNum = 0;   
@@ -98,11 +99,15 @@ void SlidingWindowSend() {
 
             memset(packet, 0, packetSize);
             strcpy(packet, buffArr.at(i).c_str());
-
             // cout << "packet: " << packet << endl;
-            while(SocketSend(hSocket, packet, packetSize) == -1) {
-                cout << "resending due to packet drop" << endl;
-                (dropped)++;
+            if(shouldFail() == true) {
+                cout << "Faked Error: Send Got Lost" << endl;
+                dropped++;
+            }
+            else {
+                while(SocketSend(hSocket, packet, packetSize) == -1) {
+                    cout << "resending due to packet drop" << endl;
+                }
             }
         }
         mtx.unlock();
@@ -118,56 +123,54 @@ void SlidingWindowSend() {
 
 int SlidingWindowRecvSR(double timeout) {
 
-    clock_t time = clock();
-        cout << "Receive Start" << endl;
+    cout << "Receive Start" << endl;
 
-        while(run == true || buffArr.size() > 0) {
+    while(run == true || buffArr.size() > 0) {
 
-            while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) > 0) {
-                mtx.lock();
+        while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) > 0) {
+            mtx.lock();
 
-                cout << "Ack Received: " << server_reply[0] << endl;
+            cout << "Ack Received: " << server_reply[0] << endl;
 
-                if (server_reply[0] == buffArr.at(0)[0]) {
-                    buffArr.erase(buffArr.begin());
-                    total++;
-                } else {
-                    (dropped)++;
-                }
-                mtx.unlock();
+            if (server_reply[0] == buffArr.at(0)[0]) {
+                buffArr.erase(buffArr.begin());
+                total++;
+            } else {
+                (dropped)++;
             }
+            mtx.unlock();
         }
+    }
     return 0;
 }
 
 int SlidingWindowRecvGBN(double timeout) {
 
-    clock_t time = clock();
-        cout << "Receive Start" << endl;
+    cout << "Receive Start" << endl;
 
-        while(run == true || buffArr.size() > 0) {
+    while(run == true || buffArr.size() > 0) {
 
-            while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) > 0) {
-                mtx.lock();
+        while(SocketReceive(hSocket, server_reply, sizeof(server_reply)) > 0) {
+            mtx.lock();
 
-                cout << "Ack Received: " << server_reply[0] << endl;
+            cout << "Ack Received: " << server_reply[0] << endl;
 
-                if (server_reply[0] == buffArr.at(inc)[0]) {
+            if (server_reply[0] == buffArr.at(inc)[0]) {
 
-                    inc++;
+                inc++;
 
-                    if(inc == buffArr.size()) {
-                        buffArr.clear();
-                        total += WINDOWSIZE;
-                        inc = 0;
-                    }
-
-                } else {
-                    (dropped)++;
+                if(inc == buffArr.size()) {
+                    buffArr.clear();
+                    total += WINDOWSIZE;
+                    inc = 0;
                 }
-                mtx.unlock();
+
+            } else {
+                (dropped)++;
             }
+            mtx.unlock();
         }
+    }
     return 0;
 }
 
@@ -181,7 +184,12 @@ void loadBuffer(ifstream *myfile) {
             } else {
                 mtx.lock();
                 readSize = getReadSize(buff, readSize);
-                generatePacket(genPacket, buff, readSize, seqNum);
+
+                char buffCopy[buffSize];
+                strcpy(buffCopy, buff);
+                checksum(buffCopy, chksum);
+                generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
+                // generatePacket(genPacket, buff, readSize, seqNum);
                 buffArr.push_back(genPacket);
 
                 seqNum++;
@@ -190,6 +198,7 @@ void loadBuffer(ifstream *myfile) {
                 readSize = buffSize;
                 memset(buff, 0, buffSize);
                 memset(genPacket, 0, packetSize);
+                memset(chksum, 0, sizeof(char)*8);
                 mtx.unlock();
             }
         } while(buffArr.size() == WINDOWSIZE);
@@ -198,7 +207,11 @@ void loadBuffer(ifstream *myfile) {
     mtx.lock();
     reads++;
     readSize = getReadSize(buff, readSize);
-    generatePacket(genPacket, buff, readSize, seqNum);
+    char buffCopy[buffSize];
+    strcpy(buffCopy, buff);
+    checksum(buffCopy, chksum);
+    generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
+    // generatePacket(genPacket, buff, readSize, seqNum);
     buffArr.push_back(genPacket);
 
     seqNum++;
@@ -258,8 +271,8 @@ int SlidingWindowProtocol(int argc, char *argv[], int type, int timeout) {
     
 
     cout << "\n\n\n" << endl;
-    cout << "total ACKs dropped: " << dropped << endl;
-    cout << "Number of Packets: " << total << endl;
+    cout << "total sends dropped: " << dropped << endl;
+    cout << "number of packets: " << total << endl;
     cout << "file size: " << filesize(argv[1]) << " bytes" << endl;
     cout << "total elapsed time: " << seconds << endl;
     string filename (argv[1]);
