@@ -16,9 +16,13 @@
 
 using namespace std;
 
-void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* chksum, char* server_reply, int buffSize, int* readSize, int* total, int* dropped, int* seqNum) {
 
-    double timeout = 0.5;
+int checksumFails = 0;
+int didChecksumFail = false;
+
+void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* chksum, char* server_reply, int buffSize, int* readSize, int* total, int* dropped, int* seqNum, double timeoutVal) {
+
+    double timeout = timeoutVal;
     clock_t time = clock();
 
     char buffCopy[buffSize];
@@ -31,6 +35,12 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* ch
     generateChecksumPacket(packet, buffCopy, chksum, *readSize, *seqNum); //assemble packet
 
     //cout << "This is the packet: " << packet << endl;
+    didChecksumFail = shouldFail();
+    if(didChecksumFail) {
+        checksumFails++;
+        cout << "Fake Error: Checksum" << endl;
+        packet[3] = packet[3]+15;
+    }
 
     if(shouldFail() == true) {
         cout << "Fake Error: Socket did not send" << endl;
@@ -39,6 +49,10 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* ch
             cout << "resending due to packet drop" << endl;
             (*dropped)++;
         }
+    }
+
+    if(didChecksumFail) {
+        packet[3] = packet[3]-15;
     }
 
     //wait for reply
@@ -64,7 +78,7 @@ void stopAndWait(int hSocket, char* packet, int packetSize, char* buff, char* ch
 
 }
 
-int stopAndWaitProtocol(int argc, char *argv[]) {
+int stopAndWaitProtocol(int argc, char *argv[], int timeout) {
     if (argc != 2)
     {
         printf("Missing File Argument\n");
@@ -79,7 +93,7 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
     //cout << "Packetsize: " << packetSize << endl;
     const int buffSize = packetSize - 10;
     //cout << "Buffsize: " << buffSize << endl;
-    char buff[buffSize] = {0};
+    char buff[buffSize+1] = {0};
     char chksum[8] = {0};
     char server_reply[1] = {0};
     char packet[packetSize] = {0};
@@ -103,13 +117,11 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
     //Send data to the server
     while (myfile.read(buff, buffSize))
     {
-        //cout << "Buffsize before stopAndWait: " << sizeof(buff) << endl;
-        //cout << "Buffsize from variable: " << buffSize << endl;
-        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
+        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum, (double) timeout);
     }
     readSize = getReadSize(buff, readSize);
     if (readSize != 0) {
-        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum);
+        stopAndWait(hSocket, packet, packetSize, buff, chksum, server_reply, buffSize, &readSize, &total, &dropped, &seqNum, (double) timeout);
     }
 
 
@@ -121,6 +133,7 @@ int stopAndWaitProtocol(int argc, char *argv[]) {
 
 
     cout << "\n\n\n" << endl;
+    cout << "total checksums failed: " << checksumFails << endl;
     cout << "total sends dropped: " << dropped << endl;
     cout << "Number of Packets: " << total << endl;
     cout << "file size: " << filesize(argv[1]) << " bytes" << endl;

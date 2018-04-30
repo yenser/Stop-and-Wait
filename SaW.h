@@ -3,7 +3,7 @@
 
 using namespace std;
 
-int stopAndWaitProtocol(int, char**);
+int stopAndWaitProtocol(int, char**, int);
     
 
 #endif 

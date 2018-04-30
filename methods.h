@@ -4,7 +4,7 @@
 using namespace std;
 
 #define PORT 9191
-#define PACKETSIZE 1024
+#define PACKETSIZE 32
 #define SEQUENCENUM 9
 #define thing0 "127.0.0.1"
 // #define thing0 "10.35.195.46"

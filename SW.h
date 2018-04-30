@@ -3,7 +3,7 @@
 
 using namespace std;
 
-int SlidingWindowProtocol(int, char**);
+int SlidingWindowProtocol(int, char**, int, int);
     
 
 #endif 

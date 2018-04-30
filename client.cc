@@ -22,6 +22,30 @@ using namespace std;
 //main driver program
 int main(int argc, char *argv[])
 {
-    return stopAndWaitProtocol(argc, argv);
-    // return SlidingWindowProtocol(argc, argv);
+	string protocolType;
+	string packetSize;
+	string timeout;
+
+	cout << "\tSelect a protocol" << endl;
+	cout << "1. Stop and Wait\n" << "2. Sliding Window GBN\n" << "3. Sliding Window SR" << endl;
+	cin >> protocolType;
+
+	cout << "Timeout: ";
+	cin >> timeout;
+	int timeoutInt = stoi(timeout);
+
+	int protocolTypeInt = stoi(protocolType);
+
+	if(protocolTypeInt == 1) {
+		cout << "\n\nSTOP AND WAIT\n\n";
+		stopAndWaitProtocol(argc, argv, timeoutInt);
+	}
+	else if (protocolTypeInt == 2) {
+		cout << "\n\nSLIDING WINDOW GBN\n\n";
+		SlidingWindowProtocol(argc, argv, 0, timeoutInt);
+	}
+	else {
+		cout << "\n\nSLIDING WINDOW GBN\n\n";
+		SlidingWindowProtocol(argc, argv, 1, timeoutInt);
+	}
 }
