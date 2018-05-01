@@ -19,7 +19,7 @@ using namespace std;
 
 /// Variable declaration ///
 const int packetSize = PACKETSIZE;
-const int buffSize = packetSize-10;
+const int buffSize = packetSize-2;
 char client_message[packetSize+1] = {0};
 // memset(client_message, '\0', sizeof client_message);
 char buff[buffSize]={0};
@@ -122,7 +122,6 @@ void stopAndWait() {
 
 // char buffArray[SEQUENCENUM+1][PACKETSIZE+1] = {};
 vector<string> buffArr;
-char strCopy[packetSize] = {0};
 char strCpy[packetSize+1] = {0};
 clock_t t1, t2;
 int failed = 0;
@@ -156,6 +155,7 @@ void SWSend(ofstream *myfile) {
 				total++;
 
 				memset(buff, 0, sizeof buff);
+				memset(strCpy, 0, sizeof strCpy);
 
 				strcpy(strCpy, buffArr.at(0).c_str());
 
@@ -163,22 +163,25 @@ void SWSend(ofstream *myfile) {
 
 
 				if (end != 0) {
-					copy(strCpy + 1, strCpy + end-8, buff);
-					copy(strCpy + end-8, strCpy + end, chksum);
+					copy(strCpy + 1, strCpy + end, buff);
+					// copy(strCpy + end-8, strCpy + end, chksum);
+
+					// cout << "strcpy: " << buffArr.at(0) << endl;
+					// cout << "chksum: " << chksum << endl;
 
 
-					checksum(buff, chksumCompare);
-				    didChecksumFail = strcmp(chksum, chksumCompare) == 0;
-				    if(didChecksumFail) {
-							myfile->write((char*) &buff, end-9);
-							writes++;			
+					// checksum(buff, chksumCompare);
+				    // didChecksumFail = strcmp(chksum, chksumCompare) == 0;
+				    // if(didChecksumFail) {
+					myfile->write((char*) &buff, end-1);
+					writes++;			
 
-					 }
-					else {
-						cout << "chksum: " << chksum << "\nchksumCompare: " << chksumCompare << endl;
-						cout << "Checksum did not match" << endl;
-						checksumFails++;
-					}
+					//  }
+					// else {
+					// 	cout << "chksum: " << chksum << "\nchksumCompare: " << chksumCompare << endl;
+					// 	cout << "Checksum did not match" << endl;
+					// 	checksumFails++;
+					// }
 				}
 
 
@@ -189,9 +192,9 @@ void SWSend(ofstream *myfile) {
 					i = 0;
 				}
 
-				memset(chksum, '\0', sizeof chksum);
-				memset(chksumCompare, '\0', sizeof chksumCompare);
-				memset(strCpy, 0, sizeof strCpy);
+				// memset(chksum, '\0', sizeof chksum);
+				// memset(chksumCompare, '\0', sizeof chksumCompare);
+				// memset(strCpy, 0, sizeof strCpy);
 		    	buffArr.erase(buffArr.begin());
 
 		    	if(shouldFail() == true) {

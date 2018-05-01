@@ -99,7 +99,7 @@ void SlidingWindowSend() {
 
             memset(packet, 0, packetSize);
             strcpy(packet, buffArr.at(i).c_str());
-            // cout << "packet: " << packet << endl;
+            // cout << "packetsize: " << sizeof packet << "\tpacket: " << packet << endl;
             if(shouldFail() == true) {
                 cout << "Faked Error: Send Got Lost" << endl;
                 dropped++;
@@ -185,11 +185,11 @@ void loadBuffer(ifstream *myfile) {
                 mtx.lock();
                 readSize = getReadSize(buff, readSize);
 
-                char buffCopy[buffSize];
-                strcpy(buffCopy, buff);
-                checksum(buffCopy, chksum);
-                generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
-                // generatePacket(genPacket, buff, readSize, seqNum);
+                // char buffCopy[buffSize];
+                // strcpy(buffCopy, buff);
+                // checksum(buffCopy, chksum);
+                // generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
+                generatePacket(genPacket, buff, readSize, seqNum);
                 buffArr.push_back(genPacket);
 
                 seqNum++;
@@ -207,11 +207,11 @@ void loadBuffer(ifstream *myfile) {
     mtx.lock();
     reads++;
     readSize = getReadSize(buff, readSize);
-    char buffCopy[buffSize];
-    strcpy(buffCopy, buff);
-    checksum(buffCopy, chksum);
-    generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
-    // generatePacket(genPacket, buff, readSize, seqNum);
+    // char buffCopy[buffSize];
+    // strcpy(buffCopy, buff);
+    // checksum(buffCopy, chksum);
+    // generateChecksumPacket(genPacket, buffCopy, chksum, readSize, seqNum);
+    generatePacket(genPacket, buff, readSize, seqNum);
     buffArr.push_back(genPacket);
 
     seqNum++;
